@@ -1,0 +1,167 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Global array to store the tree structure: [node_index][0=left, 1=right]
+#define MAX_NODES 1025
+int tree[MAX_NODES][2];
+int depth[MAX_NODES];
+
+// Function to pre-calculate the depth of every node using BFS
+void calculate_depth(int n) {
+    if (n == 0) return;
+    
+    // We don't need to reset depth if it's a global array and we only calculate once.
+    
+    // Queue for BFS: stores node index
+    int queue[MAX_NODES];
+    int head = 0;
+    int tail = 0;
+
+    // Start with the root (Node 1) at depth 1
+    queue[tail++] = 1;
+    depth[1] = 1;
+
+    while (head < tail) {
+        int u = queue[head++];
+        int d = depth[u];
+
+        // Process left child
+        int left = tree[u][0];
+        if (left != -1) {
+            depth[left] = d + 1;
+            queue[tail++] = left;
+        }
+
+        // Process right child
+        int right = tree[u][1];
+        if (right != -1) {
+            depth[right] = d + 1;
+            queue[tail++] = right;
+        }
+    }
+}
+
+// Function to perform the in-order traversal and store the result
+void inorder_traversal(int u, int* result, int* result_index) {
+    if (u == -1) {
+        return;
+    }
+
+    // 1. Traverse left subtree
+    inorder_traversal(tree[u][0], result, result_index);
+
+    // 2. Visit root
+    result[(*result_index)++] = u;
+
+    // 3. Traverse right subtree
+    inorder_traversal(tree[u][1], result, result_index);
+}
+
+// Main function to perform swap operations and traversals
+int** swapNodes(int n, int** indexes, int queries_count, int* queries, int* result_rows) {
+    
+    // 1. Build the tree array from the input indexes
+    for (int i = 1; i <= n; i++) {
+        tree[i][0] = indexes[i - 1][0];
+        tree[i][1] = indexes[i - 1][1];
+    }
+    
+    // 2. Pre-calculate the depth of every node
+    calculate_depth(n);
+    
+    // Determine the maximum depth
+    int max_depth = 0;
+    for(int i = 1; i <= n; i++) {
+        if (depth[i] > max_depth) {
+            max_depth = depth[i];
+        }
+    }
+
+    // Allocate memory for the 2D result array
+    *result_rows = queries_count;
+    int** results = (int**)malloc(queries_count * sizeof(int*));
+    if (results == NULL) return NULL;
+
+    // 3. Process Queries
+    for (int q = 0; q < queries_count; q++) {
+        int k = queries[q];
+        
+        // --- 3a. Perform Swaps ---
+        // Iterate through all depths h that are multiples of k
+        for (int h = k; h <= max_depth; h += k) {
+            
+            // Iterate through all nodes and swap if they are at depth h
+            for (int u = 1; u <= n; u++) {
+                if (depth[u] == h) {
+                    // Swap the children
+                    int temp = tree[u][0];
+                    tree[u][0] = tree[u][1];
+                    tree[u][1] = temp;
+                }
+            }
+        }
+        
+        // --- 3b. Perform In-order Traversal ---
+        results[q] = (int*)malloc(n * sizeof(int));
+        if (results[q] == NULL) {
+            *result_rows = q;
+            return results; 
+        }
+
+        int result_index = 0;
+        inorder_traversal(1, results[q], &result_index); 
+    }
+
+    return results;
+}
+
+
+// --- REQUIRED main FUNCTION (UNCOMMENTED) ---
+int main() {
+    int n;
+    // Read N
+    if (scanf("%d", &n) != 1) return 1;
+
+    // Read N lines of indexes
+    int** indexes = (int**)malloc(n * sizeof(int*));
+    if (indexes == NULL) return 1;
+    for (int i = 0; i < n; i++) {
+        indexes[i] = (int*)malloc(2 * sizeof(int));
+        if (indexes[i] == NULL) return 1;
+        if (scanf("%d %d", &indexes[i][0], &indexes[i][1]) != 2) return 1;
+    }
+
+    int t;
+    // Read T (number of queries)
+    if (scanf("%d", &t) != 1) return 1;
+
+    // Read T lines of queries (k values)
+    int* queries = (int*)malloc(t * sizeof(int));
+    if (queries == NULL) return 1;
+    for (int i = 0; i < t; i++) {
+        if (scanf("%d", &queries[i]) != 1) return 1;
+    }
+
+    int result_rows = 0;
+    int** result = swapNodes(n, indexes, t, queries, &result_rows);
+
+    // Print the results 
+    for (int i = 0; i < result_rows; i++) {
+        for (int j = 0; j < n; j++) {
+            printf("%d%s", result[i][j], (j != n - 1) ? " " : "");
+        }
+        printf("\n");
+        free(result[i]);
+    }
+    free(result);
+
+    // Clean up input memory
+    for (int i = 0; i < n; i++) {
+        free(indexes[i]);
+    }
+    free(indexes);
+    free(queries);
+
+    return 0;
+}
